@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Entry</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .toast-slide { animation: toastIn 0.3s ease, toastOut 0.3s ease 2.2s forwards; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full overflow-auto" style="background-color: #0f1117;"><!-- Toast -->
+   <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 hidden">
+    <div class="px-5 py-3 rounded-xl text-sm font-medium shadow-lg" style="background-color: #22c55e; color: #0f1117;"><span id="toast-msg"></span>
+    </div>
+   </div>
+   <div class="max-w-2xl mx-auto px-5 py-10"><!-- Header -->
+    <div class="mb-8">
+     <h1 id="el-title" class="text-3xl font-bold mb-1" style="color: #f0f0f0;">Data Entry</h1>
+     <p id="el-subtitle" class="text-base" style="color: #6b7280;">Add and manage your records below.</p>
+    </div><!-- Form Card -->
+    <form id="entry-form" class="rounded-2xl p-6 mb-8 border" style="background-color: #181a24; border-color: #2a2d3a;">
+     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      <div><label for="f-name" class="block text-sm font-medium mb-1.5" style="color: #a1a1aa;">Name</label> <input id="f-name" type="text" required placeholder="Jane Smith" class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border focus:ring-2 focus:ring-opacity-40" style="background-color: #0f1117; border-color: #2a2d3a; color: #f0f0f0; --tw-ring-color: #6366f1;">
+      </div>
+      <div><label for="f-email" class="block text-sm font-medium mb-1.5" style="color: #a1a1aa;">Email</label> <input id="f-email" type="email" required placeholder="jane@example.com" class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border focus:ring-2 focus:ring-opacity-40" style="background-color: #0f1117; border-color: #2a2d3a; color: #f0f0f0; --tw-ring-color: #6366f1;">
+      </div>
+     </div>
+     <div class="mb-4"><label for="f-cat" class="block text-sm font-medium mb-1.5" style="color: #a1a1aa;">Category</label> <select id="f-cat" required class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border focus:ring-2 focus:ring-opacity-40" style="background-color: #0f1117; border-color: #2a2d3a; color: #f0f0f0; --tw-ring-color: #6366f1;"> <option value="">Select…</option> <option>General</option> <option>Sales</option> <option>Support</option> <option>Other</option> </select>
+     </div>
+     <div class="mb-5"><label for="f-notes" class="block text-sm font-medium mb-1.5" style="color: #a1a1aa;">Notes</label> <textarea id="f-notes" rows="3" placeholder="Optional notes…" class="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none border focus:ring-2 focus:ring-opacity-40 resize-none" style="background-color: #0f1117; border-color: #2a2d3a; color: #f0f0f0; --tw-ring-color: #6366f1;"></textarea>
+     </div><button id="submit-btn" type="submit" class="w-full rounded-xl py-2.5 text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2" style="background-color: #6366f1; color: #ffffff;"> <i data-lucide="plus" style="width:16px;height:16px;"></i> <span id="submit-text">Add Record</span> </button>
+     <p id="limit-warn" class="hidden text-center text-sm mt-3" style="color: #ef4444;">Record limit reached (999). Please delete some entries first.</p>
+    </form><!-- Records -->
+    <div class="flex items-center justify-between mb-4">
+     <h2 class="text-lg font-semibold" style="color: #f0f0f0;">Records <span id="count-badge" class="text-sm font-normal" style="color: #6b7280;">(0)</span></h2>
+    </div>
+    <div id="empty-state" class="text-center py-12 rounded-2xl border" style="border-color: #2a2d3a; color: #6b7280;"><i data-lucide="inbox" style="width:40px;height:40px;margin:0 auto 12px;display:block;"></i>
+     <p class="text-sm">No records yet. Add one above!</p>
+    </div>
+    <div id="records-list" class="space-y-3"></div>
+   </div><!-- Delete Confirm Overlay -->
+   <div id="delete-overlay" class="hidden fixed inset-0 z-40 flex items-center justify-center" style="background:rgba(0,0,0,0.6);">
+    <div class="rounded-2xl p-6 max-w-sm w-full mx-4" style="background-color: #181a24;">
+     <p class="text-base font-semibold mb-1" style="color: #f0f0f0;">Delete this record?</p>
+     <p class="text-sm mb-5" style="color: #6b7280;">This action cannot be undone.</p>
+     <div class="flex gap-3"><button id="del-cancel" class="flex-1 rounded-xl py-2 text-sm font-medium border" style="border-color: #2a2d3a; color: #a1a1aa;">Cancel</button> <button id="del-confirm" class="flex-1 rounded-xl py-2 text-sm font-medium" style="background-color: #ef4444; color: #fff;">Delete</button>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+  // --- State ---
+  let allRecords = [];
+  let pendingDelete = null;
+
+  // --- Element SDK ---
+  const defaultConfig = {
+    form_title: 'Data Entry',
+    subtitle_text: 'Add and manage your records below.',
+    background_color: '#0f1117',
+    surface_color: '#181a24',
+    text_color: '#f0f0f0',
+    primary_action_color: '#6366f1',
+    secondary_action_color: '#6b7280',
+    font_family: 'DM Sans',
+    font_size: 16
+  };
+
+  function applyConfig(c) {
+    const bg = c.background_color || defaultConfig.background_color;
+    const sf = c.surface_color || defaultConfig.surface_color;
+    const tx = c.text_color || defaultConfig.text_color;
+    const pa = c.primary_action_color || defaultConfig.primary_action_color;
+    const sa = c.secondary_action_color || defaultConfig.secondary_action_color;
+    const ff = (c.font_family || defaultConfig.font_family) + ', sans-serif';
+    const fs = c.font_size || defaultConfig.font_size;
+
+    document.getElementById('app').style.backgroundColor = bg;
+    document.querySelectorAll('input,select,textarea').forEach(el => { el.style.backgroundColor = bg; el.style.color = tx; });
+    document.querySelectorAll('form, #empty-state, #delete-overlay > div').forEach(el => el.style.backgroundColor = sf);
+    document.getElementById('el-title').textContent = c.form_title || defaultConfig.form_title;
+    document.getElementById('el-title').style.color = tx;
+    document.getElementById('el-subtitle').textContent = c.subtitle_text || defaultConfig.subtitle_text;
+    document.getElementById('el-subtitle').style.color = sa;
+    document.getElementById('submit-btn').style.backgroundColor = pa;
+    document.getElementById('count-badge').style.color = sa;
+    document.getElementById('empty-state').style.color = sa;
+
+    document.body.style.fontFamily = ff;
+    document.getElementById('el-title').style.fontSize = (fs * 1.9) + 'px';
+    document.getElementById('el-subtitle').style.fontSize = fs + 'px';
+
+    // Update record cards
+    document.querySelectorAll('.rec-card').forEach(card => {
+      card.style.backgroundColor = sf;
+      card.querySelector('.rec-name').style.color = tx;
+      card.querySelector('.rec-email').style.color = sa;
+      card.querySelector('.rec-cat').style.backgroundColor = pa + '20';
+      card.querySelector('.rec-cat').style.color = pa;
+    });
+  }
+
+  window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => applyConfig(config),
+    mapToCapabilities: (config) => ({
+      recolorables: [
+        { get: () => config.background_color || defaultConfig.background_color, set: v => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+        { get: () => config.surface_color || defaultConfig.surface_color, set: v => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); } },
+        { get: () => config.text_color || defaultConfig.text_color, set: v => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } },
+        { get: () => config.primary_action_color || defaultConfig.primary_action_color, set: v => { config.primary_action_color = v; window.elementSdk.setConfig({ primary_action_color: v }); } },
+        { get: () => config.secondary_action_color || defaultConfig.secondary_action_color, set: v => { config.secondary_action_color = v; window.elementSdk.setConfig({ secondary_action_color: v }); } },
+      ],
+      borderables: [],
+      fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: v => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); } },
+      fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: v => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); } }
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['form_title', config.form_title || defaultConfig.form_title],
+      ['subtitle_text', config.subtitle_text || defaultConfig.subtitle_text]
+    ])
+  });
+
+  // --- Data SDK ---
+  const dataHandler = {
+    onDataChanged(data) {
+      allRecords = data;
+      renderRecords();
+    }
+  };
+
+  window.dataSdk.init(dataHandler);
+
+  // --- Render ---
+  function renderRecords() {
+    const list = document.getElementById('records-list');
+    const empty = document.getElementById('empty-state');
+    document.getElementById('count-badge').textContent = `(${allRecords.length})`;
+    document.getElementById('limit-warn').classList.toggle('hidden', allRecords.length < 999);
+
+    if (!allRecords.length) { empty.classList.remove('hidden'); list.innerHTML = ''; return; }
+    empty.classList.add('hidden');
+
+    const existingMap = new Map([...list.children].map(el => [el.dataset.id, el]));
+    const ids = new Set(allRecords.map(r => r.__backendId));
+
+    // remove deleted
+    existingMap.forEach((el, id) => { if (!ids.has(id)) el.remove(); });
+
+    const cfg = window.elementSdk.config || defaultConfig;
+    const sf = cfg.surface_color || defaultConfig.surface_color;
+    const tx = cfg.text_color || defaultConfig.text_color;
+    const sa = cfg.secondary_action_color || defaultConfig.secondary_action_color;
+    const pa = cfg.primary_action_color || defaultConfig.primary_action_color;
+
+    allRecords.forEach(r => {
+      let card = existingMap.get(r.__backendId);
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'rec-card rounded-xl p-4 border flex items-start justify-between fade-in';
+        card.style.borderColor = '#2a2d3a';
+        card.dataset.id = r.__backendId;
+        card.innerHTML = `
+          <div class="min-w-0 flex-1">
+            <p class="rec-name font-semibold text-sm truncate"></p>
+            <p class="rec-email text-xs mt-0.5 truncate"></p>
+            <span class="rec-cat inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-2"></span>
+            <p class="rec-notes text-xs mt-2 line-clamp-2" style="color:${sa};"></p>
+          </div>
+          <button class="rec-del ml-3 mt-1 p-1.5 rounded-lg hover:opacity-80 transition-opacity" style="color:${sa};">
+            <i data-lucide="trash-2" style="width:15px;height:15px;"></i>
+          </button>`;
+        card.querySelector('.rec-del').addEventListener('click', () => showDeleteConfirm(r));
+        list.appendChild(card);
+        lucide.createIcons();
+      }
+      card.style.backgroundColor = sf;
+      card.querySelector('.rec-name').textContent = r.name;
+      card.querySelector('.rec-name').style.color = tx;
+      card.querySelector('.rec-email').textContent = r.email;
+      card.querySelector('.rec-email').style.color = sa;
+      card.querySelector('.rec-cat').textContent = r.category;
+      card.querySelector('.rec-cat').style.backgroundColor = pa + '20';
+      card.querySelector('.rec-cat').style.color = pa;
+      const notesEl = card.querySelector('.rec-notes');
+      if (r.notes) { notesEl.textContent = r.notes; notesEl.classList.remove('hidden'); }
+      else { notesEl.classList.add('hidden'); }
+    });
+  }
+
+  // --- Toast ---
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.remove('hidden');
+    t.querySelector('div').classList.remove('toast-slide');
+    void t.querySelector('div').offsetWidth;
+    t.querySelector('div').classList.add('toast-slide');
+    setTimeout(() => t.classList.add('hidden'), 2500);
+  }
+
+  // --- Form Submit ---
+  document.getElementById('entry-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (allRecords.length >= 999) return;
+    const btn = document.getElementById('submit-btn');
+    const origText = document.getElementById('submit-text').textContent;
+    btn.disabled = true; btn.style.opacity = '0.6';
+    document.getElementById('submit-text').textContent = 'Saving…';
+
+    const result = await window.dataSdk.create({
+      name: document.getElementById('f-name').value.trim(),
+      email: document.getElementById('f-email').value.trim(),
+      category: document.getElementById('f-cat').value,
+      notes: document.getElementById('f-notes').value.trim(),
+      created_at: new Date().toISOString()
+    });
+
+    btn.disabled = false; btn.style.opacity = '1';
+    document.getElementById('submit-text').textContent = origText;
+
+    if (result.isOk) {
+      e.target.reset();
+      showToast('Record added!');
+    } else {
+      showToast('Failed to save. Try again.');
+    }
+  });
+
+  // --- Delete ---
+  function showDeleteConfirm(record) {
+    pendingDelete = record;
+    document.getElementById('delete-overlay').classList.remove('hidden');
+  }
+  document.getElementById('del-cancel').addEventListener('click', () => {
+    document.getElementById('delete-overlay').classList.add('hidden');
+    pendingDelete = null;
+  });
+  document.getElementById('del-confirm').addEventListener('click', async () => {
+    if (!pendingDelete) return;
+    const btn = document.getElementById('del-confirm');
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    const result = await window.dataSdk.delete(pendingDelete);
+    btn.disabled = false; btn.textContent = 'Delete';
+    document.getElementById('delete-overlay').classList.add('hidden');
+    if (result.isOk) showToast('Record deleted.');
+    else showToast('Failed to delete. Try again.');
+    pendingDelete = null;
+  });
+
+  lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9f25113a60977b14',t:'MTc3NzIwMTA1NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
